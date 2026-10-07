@@ -4,5 +4,6 @@ server:
   namespace: "KONSORT"
 
 runtime:
-  poll_ms: 200
+  modbus_poll_ms: 200
+  opcua_subscription_ms: 200
   reconnect_delay_sec: 5

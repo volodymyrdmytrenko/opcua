@@ -5,6 +5,7 @@ devices:
     endpoint: "opc.tcp://10.0.0.222:4840"
     tags_file: "tags/m241_line1.yaml"
 
+  # Приклад Modbus TCP контролера.
   # - id: modbus_plc_01
   #   name: "Packaging"
   #   protocol: modbus_tcp

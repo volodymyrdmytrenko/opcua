@@ -1,8 +1,9 @@
 \
 import asyncio
+import re
 from pathlib import Path
-import yaml
 
+import yaml
 from asyncua import Server, ua
 
 from drivers.opcua_driver import OpcUaDriver
@@ -29,8 +30,10 @@ def ua_variant_type(type_name):
         "Double": ua.VariantType.Double,
         "String": ua.VariantType.String,
     }
+
     if type_name not in mapping:
         raise ValueError(f"Unsupported OPC UA target type: {type_name}")
+
     return mapping[type_name]
 
 
@@ -46,34 +49,87 @@ def initial_value(type_name):
     raise ValueError(f"Unsupported type: {type_name}")
 
 
-async def device_loop(device_ctx, poll_ms, reconnect_delay_sec):
-    driver = device_ctx["driver"]
-    tags = device_ctx["tags"]
-    online_node = device_ctx["online_node"]
-    last_error_node = device_ctx["last_error_node"]
+def sanitize_nodeid_part(value):
+    """
+    Keep NodeIds readable and stable.
+    BrowseName may remain user-friendly, while NodeId gets a clean safe path.
+    """
+    value = str(value).strip()
+    value = re.sub(r"\s+", "_", value)
+    value = re.sub(r"[^A-Za-z0-9_.-]", "_", value)
+    value = re.sub(r"_+", "_", value)
+    return value.strip("_") or "Node"
+
+
+def string_nodeid(ns_idx, *parts):
+    path = ".".join(sanitize_nodeid_part(p) for p in parts)
+    return ua.NodeId(path, ns_idx)
+
+
+async def opcua_device_loop(ctx):
+    driver = ctx["driver"]
+
+    async def on_datachange(tag, value):
+        target = ctx["target_by_name"][tag["name"]]
+        await target.write_value(
+            ua.Variant(value, ua_variant_type(tag["type"]))
+        )
+
+    async def on_online(value):
+        await ctx["online_node"].write_value(
+            ua.Variant(bool(value), ua.VariantType.Boolean)
+        )
+
+    async def on_error(message):
+        await ctx["last_error_node"].write_value(
+            ua.Variant(str(message), ua.VariantType.String)
+        )
+
+    await driver.run_subscription(
+        tags=ctx["tags_cfg"],
+        on_datachange=on_datachange,
+        on_online=on_online,
+        on_error=on_error,
+    )
+
+
+async def modbus_device_loop(ctx, poll_ms, reconnect_delay_sec):
+    driver = ctx["driver"]
 
     while True:
         try:
             if not driver.connected:
                 await driver.connect()
 
-            await online_node.write_value(True)
-            await last_error_node.write_value("")
+            await ctx["online_node"].write_value(
+                ua.Variant(True, ua.VariantType.Boolean)
+            )
+            await ctx["last_error_node"].write_value(
+                ua.Variant("", ua.VariantType.String)
+            )
 
-            for tag_ctx in tags:
-                value = await driver.read(tag_ctx["config"])
-                variant_type = ua_variant_type(tag_ctx["config"]["type"])
-                await tag_ctx["node"].write_value(ua.Variant(value, variant_type))
+            for tag in ctx["tags_cfg"]:
+                value = await driver.read(tag)
+                target = ctx["target_by_name"][tag["name"]]
+                await target.write_value(
+                    ua.Variant(value, ua_variant_type(tag["type"]))
+                )
 
             await asyncio.sleep(poll_ms / 1000.0)
 
         except asyncio.CancelledError:
+            await driver.disconnect()
             raise
 
         except Exception as exc:
-            await online_node.write_value(False)
-            await last_error_node.write_value(str(exc))
-            print(f"[{device_ctx['name']}] ERROR: {exc}")
+            await ctx["online_node"].write_value(
+                ua.Variant(False, ua.VariantType.Boolean)
+            )
+            await ctx["last_error_node"].write_value(
+                ua.Variant(str(exc), ua.VariantType.String)
+            )
+
+            print(f"[{ctx['name']}] MODBUS ERROR: {exc}")
             await driver.disconnect()
             await asyncio.sleep(reconnect_delay_sec)
 
@@ -81,6 +137,11 @@ async def device_loop(device_ctx, poll_ms, reconnect_delay_sec):
 async def main():
     config = load_yaml("config.yaml")
     devices_cfg = load_yaml("devices.yaml")["devices"]
+
+    runtime = config.get("runtime", {})
+    modbus_poll_ms = int(runtime.get("modbus_poll_ms", 200))
+    opcua_subscription_ms = int(runtime.get("opcua_subscription_ms", 200))
+    reconnect_delay_sec = float(runtime.get("reconnect_delay_sec", 5))
 
     server = Server()
     await server.init()
@@ -92,70 +153,123 @@ async def main():
     namespace_uri = config["server"]["namespace"]
     ns_idx = await server.register_namespace(namespace_uri)
 
-    objects = server.nodes.objects
-    root = await objects.add_object(ns_idx, "KONSORT")
+    # Explicit STRING NodeId: ns=<idx>;s=KONSORT
+    root = await server.nodes.objects.add_object(
+        string_nodeid(ns_idx, "KONSORT"),
+        "KONSORT",
+    )
 
-    runtime = config.get("runtime", {})
-    poll_ms = int(runtime.get("poll_ms", 200))
-    reconnect_delay_sec = int(runtime.get("reconnect_delay_sec", 5))
-
-    device_contexts = []
+    contexts = []
 
     for device in devices_cfg:
-        device_folder = await root.add_object(ns_idx, device["name"])
-        status_folder = await device_folder.add_object(ns_idx, "_Status")
+        name = device["name"]
+        protocol = device["protocol"].lower()
+
+        device_folder = await root.add_object(
+            string_nodeid(ns_idx, "KONSORT", name),
+            name,
+        )
+
+        status_folder = await device_folder.add_object(
+            string_nodeid(ns_idx, "KONSORT", name, "_Status"),
+            "_Status",
+        )
 
         online_node = await status_folder.add_variable(
-            ns_idx, "Online", ua.Variant(False, ua.VariantType.Boolean)
+            string_nodeid(ns_idx, "KONSORT", name, "_Status", "Online"),
+            "Online",
+            ua.Variant(False, ua.VariantType.Boolean),
         )
+
         last_error_node = await status_folder.add_variable(
-            ns_idx, "LastError", ua.Variant("", ua.VariantType.String)
+            string_nodeid(ns_idx, "KONSORT", name, "_Status", "LastError"),
+            "LastError",
+            ua.Variant("", ua.VariantType.String),
         )
 
         tags_cfg = load_yaml(device["tags_file"]).get("tags", [])
-        tag_contexts = []
+        target_by_name = {}
 
+        seen_names = set()
         for tag in tags_cfg:
-            node = await device_folder.add_variable(
-                ns_idx,
-                tag["name"],
-                ua.Variant(initial_value(tag["type"]), ua_variant_type(tag["type"])),
-            )
-            tag_contexts.append({"config": tag, "node": node})
+            tag_name = tag["name"]
 
-        protocol = device["protocol"].lower()
+            if tag_name in seen_names:
+                raise ValueError(
+                    f"Duplicate tag name '{tag_name}' in {device['tags_file']}"
+                )
+            seen_names.add(tag_name)
+
+            target_by_name[tag_name] = await device_folder.add_variable(
+                string_nodeid(ns_idx, "KONSORT", name, tag_name),
+                tag_name,
+                ua.Variant(
+                    initial_value(tag["type"]),
+                    ua_variant_type(tag["type"]),
+                ),
+            )
 
         if protocol == "opcua":
-            driver = OpcUaDriver(device, reconnect_delay_sec)
+            driver = OpcUaDriver(
+                device,
+                subscription_ms=opcua_subscription_ms,
+                reconnect_delay_sec=reconnect_delay_sec,
+            )
         elif protocol == "modbus_tcp":
-            driver = ModbusTcpDriver(device, reconnect_delay_sec)
+            driver = ModbusTcpDriver(
+                device,
+                reconnect_delay_sec=reconnect_delay_sec,
+            )
         else:
             raise ValueError(f"Unsupported protocol: {protocol}")
 
-        device_contexts.append(
+        contexts.append(
             {
-                "name": device["name"],
+                "name": name,
+                "protocol": protocol,
                 "driver": driver,
-                "tags": tag_contexts,
+                "tags_cfg": tags_cfg,
+                "target_by_name": target_by_name,
                 "online_node": online_node,
                 "last_error_node": last_error_node,
             }
         )
 
     print(f"Starting OPC UA Gateway: {endpoint}")
+    print(f"Namespace index: {ns_idx}")
+    print("Output NodeIds: explicit String NodeIds")
+    print(
+        f"OPC UA source mode: subscriptions "
+        f"({opcua_subscription_ms} ms publishing interval)"
+    )
+    print(f"Modbus source mode: polling ({modbus_poll_ms} ms)")
 
     async with server:
-        tasks = [
-            asyncio.create_task(device_loop(ctx, poll_ms, reconnect_delay_sec))
-            for ctx in device_contexts
-        ]
+        tasks = []
+
+        for ctx in contexts:
+            if ctx["protocol"] == "opcua":
+                tasks.append(asyncio.create_task(opcua_device_loop(ctx)))
+            elif ctx["protocol"] == "modbus_tcp":
+                tasks.append(
+                    asyncio.create_task(
+                        modbus_device_loop(
+                            ctx,
+                            modbus_poll_ms,
+                            reconnect_delay_sec,
+                        )
+                    )
+                )
 
         try:
             await asyncio.gather(*tasks)
         finally:
             for task in tasks:
                 task.cancel()
-            for ctx in device_contexts:
+
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+            for ctx in contexts:
                 await ctx["driver"].disconnect()
 
 

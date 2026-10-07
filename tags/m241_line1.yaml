@@ -15,10 +15,6 @@ tags:
     nodeid: "ns=2;s=SR_Main.xAnyEncoderFault (%QX0.2)"
     type: "Boolean"
 
-  - name: "qOverflowReadyToReceive"
-    nodeid: "ns=2;s=SR_Main.qOverflowReadyToReceive (%QX0.0)"
-    type: "Boolean"
-
   - name: "xLineRun (%IX10.6)"
     nodeid: "ns=2;s=SR_Main.xLineRun (%IX10.6)"
     type: "Boolean"

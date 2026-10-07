@@ -16,11 +16,15 @@ class ModbusTcpDriver:
     async def connect(self):
         if self.connected and self.client:
             return
+
         self.client = AsyncModbusTcpClient(self.host, port=self.port)
         ok = await self.client.connect()
         self.connected = bool(ok)
+
         if not self.connected:
-            raise ConnectionError(f"Cannot connect to Modbus TCP device {self.host}:{self.port}")
+            raise ConnectionError(
+                f"Cannot connect to Modbus TCP device {self.host}:{self.port}"
+            )
 
     async def disconnect(self):
         if self.client:
@@ -28,6 +32,8 @@ class ModbusTcpDriver:
                 self.client.close()
             except Exception:
                 pass
+
+        self.client = None
         self.connected = False
 
     async def read(self, tag):
@@ -39,24 +45,28 @@ class ModbusTcpDriver:
         dtype = tag["type"]
 
         if area == "coil":
-            rr = await self.client.read_coils(address=address, count=1, device_id=self.unit_id)
+            rr = await self.client.read_coils(
+                address=address, count=1, device_id=self.unit_id
+            )
             if rr.isError():
                 raise IOError(str(rr))
             return bool(rr.bits[0])
 
         if area == "discrete_input":
-            rr = await self.client.read_discrete_inputs(address=address, count=1, device_id=self.unit_id)
+            rr = await self.client.read_discrete_inputs(
+                address=address, count=1, device_id=self.unit_id
+            )
             if rr.isError():
                 raise IOError(str(rr))
             return bool(rr.bits[0])
 
+        count = 2 if dtype in ("Float32", "Int32", "UInt32") else 1
+
         if area == "holding_register":
-            count = 2 if dtype in ("Float32", "Int32", "UInt32") else 1
             rr = await self.client.read_holding_registers(
                 address=address, count=count, device_id=self.unit_id
             )
         elif area == "input_register":
-            count = 2 if dtype in ("Float32", "Int32", "UInt32") else 1
             rr = await self.client.read_input_registers(
                 address=address, count=count, device_id=self.unit_id
             )
@@ -72,12 +82,11 @@ class ModbusTcpDriver:
             return int(regs[0])
 
         if dtype == "Int16":
-            v = regs[0]
-            return v - 65536 if v > 32767 else v
+            value = regs[0]
+            return value - 65536 if value > 32767 else value
 
         if dtype in ("UInt32", "Int32", "Float32"):
-            word_order = tag.get("word_order", "big")
-            if word_order == "little":
+            if tag.get("word_order", "big") == "little":
                 regs = list(reversed(regs))
 
             raw = struct.pack(">HH", regs[0], regs[1])
