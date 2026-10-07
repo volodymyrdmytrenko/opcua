@@ -1,0 +1,16 @@
+tags:
+  - name: "Run"
+    area: "coil"
+    address: 0
+    type: "Boolean"
+
+  - name: "Counter"
+    area: "holding_register"
+    address: 100
+    type: "UInt16"
+
+  - name: "Speed"
+    area: "holding_register"
+    address: 102
+    type: "Float32"
+    word_order: "big"

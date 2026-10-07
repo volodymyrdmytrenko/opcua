@@ -1,0 +1,14 @@
+devices:
+  - id: m241_line1
+    name: "Line_1"
+    protocol: opcua
+    endpoint: "opc.tcp://10.0.0.222:4840"
+    tags_file: "tags/m241_line1.yaml"
+
+  # - id: modbus_plc_01
+  #   name: "Packaging"
+  #   protocol: modbus_tcp
+  #   host: "10.0.0.230"
+  #   port: 502
+  #   unit_id: 1
+  #   tags_file: "tags/modbus_plc_01.yaml"

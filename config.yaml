@@ -1,0 +1,8 @@
+server:
+  endpoint: "opc.tcp://0.0.0.0:4841/KONSORT/"
+  name: "KONSORT OPC UA Gateway"
+  namespace: "KONSORT"
+
+runtime:
+  poll_ms: 200
+  reconnect_delay_sec: 5

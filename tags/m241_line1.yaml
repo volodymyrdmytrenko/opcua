@@ -1,0 +1,38 @@
+tags:
+  - name: "dwEncoderFault"
+    nodeid: "ns=2;s=SR_Main.dwEncoderFault"
+    type: "UInt32"
+
+  - name: "dwZoneReady"
+    nodeid: "ns=2;s=SR_Main.dwZoneReady"
+    type: "UInt32"
+
+  - name: "qOverflowReadyToReceive"
+    nodeid: "ns=2;s=SR_Main.qOverflowReadyToReceive (%QX0.0)"
+    type: "Boolean"
+
+  - name: "xAnyEncoderFault"
+    nodeid: "ns=2;s=SR_Main.xAnyEncoderFault (%QX0.2)"
+    type: "Boolean"
+
+  - name: "qOverflowReadyToReceive"
+    nodeid: "ns=2;s=SR_Main.qOverflowReadyToReceive (%QX0.0)"
+    type: "Boolean"
+
+  - name: "xLineRun (%IX10.6)"
+    nodeid: "ns=2;s=SR_Main.xLineRun (%IX10.6)"
+    type: "Boolean"
+
+  - name: "xManualMode"
+    nodeid: "ns=2;s=SR_Main.xManualMode (%IX10.5)"
+    type: "Boolean"
+
+  - name: "xSorterReadyToReceive"
+    nodeid: "ns=2;s=SR_Main.xSorterReadyToReceive (%IX2.7)"
+    type: "Boolean"
+
+  - name: "xSorterReadyToSend"
+    nodeid: "ns=2;s=SR_Main.xSorterReadyToSend (%IX2.6)"
+    type: "Boolean"
+
+
