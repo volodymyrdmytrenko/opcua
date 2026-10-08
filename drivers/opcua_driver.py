@@ -1,8 +1,6 @@
-\
 import asyncio
 from asyncua import Client
 from asyncua.common.subscription import DataChangeEvent, StatusChangeEvent
-
 
 class OpcUaDriver:
     def __init__(self, device, subscription_ms=200, reconnect_delay_sec=5):
@@ -26,56 +24,36 @@ class OpcUaDriver:
         while True:
             try:
                 await on_online(False)
-
                 self.client = Client(url=self.endpoint)
-                await self.client.connect(
-                    auto_reconnect=True,
-                    reconnect_max_delay=self.reconnect_delay_sec,
-                )
-
+                await self.client.connect(auto_reconnect=True, reconnect_max_delay=self.reconnect_delay_sec)
                 self.connected = True
                 await on_online(True)
                 await on_error("")
-
                 nodes = []
                 tag_by_nodeid = {}
-
                 for tag in tags:
                     node = self.client.get_node(tag["nodeid"])
                     nodes.append(node)
                     tag_by_nodeid[node.nodeid.to_string()] = tag
 
-                async with await self.client.create_subscription(
-                    self.subscription_ms
-                ) as subscription:
-
-                    await subscription.subscribe_data_change(nodes)
-
-                    # Initial sync
+                async with await self.client.create_subscription(self.subscription_ms) as sub:
+                    await sub.subscribe_data_change(nodes)
                     for node in nodes:
                         value = await node.read_value()
-                        tag = tag_by_nodeid[node.nodeid.to_string()]
-                        await on_datachange(tag, value)
+                        await on_datachange(tag_by_nodeid[node.nodeid.to_string()], value, "Good")
 
-                    async for event in subscription:
+                    async for event in sub:
                         if isinstance(event, DataChangeEvent):
-                            key = event.node.nodeid.to_string()
-                            tag = tag_by_nodeid.get(key)
-
+                            tag = tag_by_nodeid.get(event.node.nodeid.to_string())
                             if tag is not None:
-                                await on_datachange(tag, event.value)
-
+                                await on_datachange(tag, event.value, "Good")
                         elif isinstance(event, StatusChangeEvent):
                             status = event.notification.Status
                             if status.is_bad():
-                                raise ConnectionError(
-                                    f"OPC UA subscription status: {status}"
-                                )
-
+                                raise ConnectionError(f"OPC UA subscription status: {status}")
             except asyncio.CancelledError:
                 await self.disconnect()
                 raise
-
             except Exception as exc:
                 self.connected = False
                 await on_online(False)

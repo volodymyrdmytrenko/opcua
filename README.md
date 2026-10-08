@@ -1,37 +1,50 @@
-# KONSORT OPC UA Gateway v2.1
+# KONSORT OPC UA Gateway v3
 
-Головна зміна: вихідні OPC UA вузли тепер мають явні стабільні String NodeId.
+## Що додано
+- MySQL: довідники `devices` і `tags`.
+- TimescaleDB: історія тегів у hypertable `tag_history`.
+- `onchange` і `cyclic` архівація.
+- Асинхронна черга + batch writer для TimescaleDB.
+- OPC UA лишається на subscriptions; Modbus — polling.
+- Стабільні String NodeId на вихідному OPC UA сервері.
 
-Приклад:
-
-```text
-ns=2;s=KONSORT.Line_1
-ns=2;s=KONSORT.Line_1._Status.Online
-ns=2;s=KONSORT.Line_1.dwZoneReady
-ns=2;s=KONSORT.Line_1.xManualMode
-```
-
-Namespace index (`ns=2`) може залежати від конфігурації сервера, але string-частина
-після `s=` стабільна.
-
-Архітектура:
-
-```text
-OPC UA PLC -> Subscription -> Python Gateway -> OPC UA -> SCADA
-Modbus PLC -> Polling ------> Python Gateway -> OPC UA -> SCADA
-```
-
-Запуск:
-
+## Встановлення Python-залежностей
 ```powershell
-py .\main.py
+pip install -r requirements.txt
 ```
 
-UaExpert:
+## Перший запуск
+За замовчуванням обидві БД у `config.yaml` вимкнені:
+```yaml
+mysql:
+  enabled: false
+timescale:
+  enabled: false
+```
+Спочатку перевір шлюз як раніше. Потім увімкнемо БД по одній.
 
-```text
-opc.tcp://localhost:4841/KONSORT/
+## MySQL
+Виконай:
+`database/schema/mysql.sql`
+
+## TimescaleDB
+TimescaleDB працює поверх PostgreSQL. Створи БД `konsort_history`, потім виконай:
+`database/schema/timescale.sql`
+
+## Архівація тега
+On change:
+```yaml
+history:
+  enabled: true
+  mode: "onchange"
 ```
 
-Після заміни версії бажано видалити старе підключення до Gateway в UaExpert
-і додати його заново, щоб браузер не тримав старі NodeId.
+Cyclic:
+```yaml
+history:
+  enabled: true
+  mode: "cyclic"
+  interval_ms: 1000
+```
+
+Приклад є у `tags/m241_line1_history_example.yaml`.

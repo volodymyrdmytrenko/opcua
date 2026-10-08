@@ -7,3 +7,22 @@ runtime:
   modbus_poll_ms: 200
   opcua_subscription_ms: 200
   reconnect_delay_sec: 5
+
+mysql:
+  enabled: false
+  host: "127.0.0.1"
+  port: 3306
+  database: "konsort_scada"
+  user: "gateway"
+  password: "CHANGE_ME"
+
+timescale:
+  enabled: false
+  host: "127.0.0.1"
+  port: 5432
+  database: "konsort_history"
+  user: "gateway"
+  password: "CHANGE_ME"
+  batch_size: 500
+  flush_interval_ms: 250
+  queue_maxsize: 50000
