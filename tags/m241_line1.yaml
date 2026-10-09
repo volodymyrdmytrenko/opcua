@@ -1,54 +1,27 @@
 tags:
-- name: dwEncoderFault
-  nodeid: ns=2;s=SR_Main.dwEncoderFault
+- name: AAA
+  nodeid: ns=2;i=713169551
+  type: Boolean
+  writable: false
+  history:
+    enabled: false
+
+- name: BBB
+  nodeid: ns=2;i=2598413999
   type: UInt32
   writable: false
   history:
     enabled: false
-- name: dwZoneReady
-  nodeid: ns=2;s=SR_Main.dwZoneReady
-  type: UInt32
-  writable: false
-  history:
-    enabled: false
-- name: qOverflowReadyToReceive
-  nodeid: ns=2;s=SR_Main.qOverflowReadyToReceive (%QX0.0)
+
+- name: CCC
+  nodeid: ns=2;i=4114533711
   type: Boolean
   writable: false
   history:
     enabled: false
-- name: xAnyEncoderFault
-  nodeid: ns=2;s=SR_Main.xAnyEncoderFault (%QX0.2)
-  type: Boolean
-  writable: false
-  history:
-    enabled: false
-- name: qOverflowReadyToReceive
-  nodeid: ns=2;s=SR_Main.qOverflowReadyToReceive (%QX0.0)
-  type: Boolean
-  writable: false
-  history:
-    enabled: false
-- name: xLineRun (%IX10.6)
-  nodeid: ns=2;s=SR_Main.xLineRun (%IX10.6)
-  type: Boolean
-  writable: false
-  history:
-    enabled: false
-- name: xManualMode
-  nodeid: ns=2;s=SR_Main.xManualMode (%IX10.5)
-  type: Boolean
-  writable: false
-  history:
-    enabled: false
-- name: xSorterReadyToReceive
-  nodeid: ns=2;s=SR_Main.xSorterReadyToReceive (%IX2.7)
-  type: Boolean
-  writable: false
-  history:
-    enabled: false
-- name: xSorterReadyToSend
-  nodeid: ns=2;s=SR_Main.xSorterReadyToSend (%IX2.6)
+
+- name: DDD
+  nodeid: ns=2;i=559208622
   type: Boolean
   writable: false
   history:

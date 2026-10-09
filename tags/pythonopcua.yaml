@@ -1,0 +1,22 @@
+tags:
+- name: P_AAA
+  nodeid: ns=2;s=AAA
+  type: Boolean
+  writable: true
+  history:
+    enabled: false
+
+- name: P_BBB
+  nodeid: ns=2;s=BBB
+  type: Boolean
+  writable: true
+  history:
+    enabled: false
+    
+- name: P_CCC
+  nodeid: ns=2;s=CCC
+  type: UInt32
+  writable: true
+  history:
+    enabled: false
+    

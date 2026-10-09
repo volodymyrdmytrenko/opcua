@@ -5,6 +5,12 @@ devices:
     endpoint: "opc.tcp://10.0.0.222:4840"
     tags_file: "tags/m241_line1.yaml"
 
+  - id: "Local_Python"
+    name: "SoftOPCUA"
+    protocol: "opcua"
+    endpoint: "opc.tcp://10.0.0.220:4840"
+    tags_file: "tags/pythonopcua.yaml"
+
   # Example Modbus TCP:
   # - id: "modbus_plc_01"
   #   name: "Packaging"

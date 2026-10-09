@@ -46,8 +46,40 @@ class OpcUaDriver:
     async def write(self, tag, value):
         if not self.connected or self.client is None:
             raise ConnectionError("OPC UA device is offline")
+
         node = self.client.get_node(tag["nodeid"])
-        await node.write_value(ua.Variant(value, TYPE_MAP[tag["type"]]))
+
+        # Читаємо реальний OPC UA тип змінної безпосередньо з контролера
+        variant_type = await node.read_data_type_as_variant_type()
+
+        # Приводимо Python-значення до відповідного типу
+        if variant_type == ua.VariantType.Boolean:
+            value = bool(value)
+
+        elif variant_type in (
+            ua.VariantType.SByte,
+            ua.VariantType.Byte,
+            ua.VariantType.Int16,
+            ua.VariantType.UInt16,
+            ua.VariantType.Int32,
+            ua.VariantType.UInt32,
+            ua.VariantType.Int64,
+            ua.VariantType.UInt64,
+        ):
+            value = int(value)
+
+        elif variant_type in (
+            ua.VariantType.Float,
+            ua.VariantType.Double,
+        ):
+            value = float(value)
+
+        elif variant_type == ua.VariantType.String:
+            value = str(value)
+
+        await node.write_value(
+            ua.Variant(value, variant_type)
+        )
 
     async def run_subscription(self, tags, on_datachange, on_online, on_error):
         while True:
