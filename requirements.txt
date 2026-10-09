@@ -1,5 +1,6 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
 asyncua==2.1.0
-pymodbus==3.15.0
+pymodbus>=3.8
 PyYAML>=6.0
-asyncmy>=0.2.10
-asyncpg>=0.30.0
+asyncpg>=0.30

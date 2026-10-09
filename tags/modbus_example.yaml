@@ -1,0 +1,19 @@
+tags:
+  - name: "MB_Run"
+    area: "coil"
+    address: 0
+    type: "Boolean"
+    writable: true
+    history:
+      enabled: true
+      mode: "onchange"
+
+  - name: "MB_Speed"
+    area: "holding_register"
+    address: 100
+    type: "UInt16"
+    writable: true
+    history:
+      enabled: true
+      mode: "cyclic"
+      interval_ms: 1000

@@ -1,45 +1,75 @@
-# KONSORT OPC UA Gateway v3
+# KONSORT PLC REST Gateway v4
 
-## Що додано
-- MySQL: довідники `devices` і `tags`.
-- TimescaleDB: історія тегів у hypertable `tag_history`.
-- `onchange` і `cyclic` архівація.
-- Асинхронна черга + batch writer для TimescaleDB.
-- OPC UA лишається на subscriptions; Modbus — polling.
-- Стабільні String NodeId на вихідному OPC UA сервері.
-
-## Встановлення Python-залежностей
-```powershell
-pip install -r requirements.txt
+## Архітектура
+```text
+OPC UA PLC -> Subscription --┐
+Modbus PLC -> Polling -------+--> Python REST Gateway
+                                   ├--> RAM cache
+                                   ├--> PostgreSQL
+                                   └--> HTTP REST API
 ```
 
-## Перший запуск
-За замовчуванням обидві БД у `config.yaml` вимкнені:
+Python більше не є OPC UA Server.
+
+## API
+Тільки адресна робота з конкретним тегом.
+
+### GET
+```http
+GET /api/tags/AAA
+```
+
+### PUT
+```http
+PUT /api/tags/BBB
+Content-Type: application/json
+
+{"value":100}
+```
+
+`GET /api/tags` навмисно відсутній.
+
+## Теги
 ```yaml
-mysql:
-  enabled: false
-timescale:
+- name: "AAA"
+  nodeid: "ns=2;s=SR_Main.qOverflowReadyToReceive (%QX0.0)"
+  type: "Boolean"
+  writable: false
+```
+
+```yaml
+- name: "BBB"
+  nodeid: "ns=2;s=SR_Main.SomeSetpoint"
+  type: "UInt32"
+  writable: true
+```
+
+REST-імена тегів глобально унікальні.
+
+## PostgreSQL
+Єдина БД. SQL схема:
+`database/schema.sql`
+
+Таблиці:
+- devices
+- tags
+- tag_history
+- write_log
+
+За замовчуванням PostgreSQL вимкнений:
+```yaml
+postgres:
   enabled: false
 ```
-Спочатку перевір шлюз як раніше. Потім увімкнемо БД по одній.
 
-## MySQL
-Виконай:
-`database/schema/mysql.sql`
-
-## TimescaleDB
-TimescaleDB працює поверх PostgreSQL. Створи БД `konsort_history`, потім виконай:
-`database/schema/timescale.sql`
-
-## Архівація тега
-On change:
+## Історія
 ```yaml
 history:
   enabled: true
   mode: "onchange"
 ```
 
-Cyclic:
+або:
 ```yaml
 history:
   enabled: true
@@ -47,4 +77,45 @@ history:
   interval_ms: 1000
 ```
 
-Приклад є у `tags/m241_line1_history_example.yaml`.
+GET читає актуальне значення з RAM cache, не з PostgreSQL.
+
+## Встановлення
+```powershell
+pip install -r requirements.txt
+```
+
+## Запуск
+```powershell
+py .\run.py
+```
+
+API:
+```text
+http://localhost:8080
+```
+
+Swagger:
+```text
+http://localhost:8080/docs
+```
+
+PowerShell GET:
+```powershell
+Invoke-RestMethod http://localhost:8080/api/tags/dwZoneReady
+```
+
+PowerShell PUT:
+```powershell
+Invoke-RestMethod -Method Put `
+  -Uri http://localhost:8080/api/tags/BBB `
+  -ContentType "application/json" `
+  -Body '{"value":123}'
+```
+
+Коди:
+- 200 success
+- 403 read-only
+- 404 tag not found
+- 422 invalid value type
+- 502 PLC write failed
+- 503 device/tag unavailable

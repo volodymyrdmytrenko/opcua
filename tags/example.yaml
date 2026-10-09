@@ -1,0 +1,16 @@
+tags:
+  - name: "AAA"
+    nodeid: "ns=2;s=SR_Main.qOverflowReadyToReceive (%QX0.0)"
+    type: "Boolean"
+    writable: false
+    history:
+      enabled: true
+      mode: "onchange"
+
+  - name: "BBB"
+    nodeid: "ns=2;s=SR_Main.SomeSetpoint"
+    type: "UInt32"
+    writable: true
+    history:
+      enabled: true
+      mode: "onchange"
